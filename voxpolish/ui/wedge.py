@@ -177,19 +177,22 @@ class VoxWedgeUI(QWidget):
         self.shadow.setColor(color)
 
     def enterEvent(self, event):
-        """Debounced roll up"""
-        self._hover_timer.start(50) # Small delay to prevent accidental roll-up
+        """Debounced roll up - only when idle"""
+        if self._current_state in ["IDLE", "READY"]:
+            self._hover_timer.start(50)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         """Roll down if not busy"""
         self._hover_timer.stop()
-        if self._current_state == "IDLE":
+        if self._current_state in ["IDLE", "READY"]:
             self._animate_ui(state="MINIMIZED")
         super().leaveEvent(event)
 
     def _do_expand(self):
-        self._animate_ui(state="RESTING")
+        """Only roll up to resting if we're not already busy with something else"""
+        if self._current_state in ["IDLE", "READY"]:
+            self._animate_ui(state="RESTING")
 
     def _animate_ui(self, state="RESTING"):
         """Performance optimized slide + scale"""
