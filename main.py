@@ -206,7 +206,9 @@ def main():
         wake = None
         try:
             print("Initializing Wake Word Engine...", flush=True)
-            wake = WakeWordListener(model_names=["alexa", "hey_mycroft"])
+            # Check config for wake word, default to 'hey_vox'
+            wake_words = self.config.get("wake_words", ["hey_vox"])
+            wake = WakeWordListener(model_names=wake_words)
         except Exception as e:
             print(f"Wake Word Engine failed to start: {e}. Voice activation disabled.", flush=True)
         
