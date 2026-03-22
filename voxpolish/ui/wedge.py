@@ -42,12 +42,16 @@ class VoxWedgeUI(QWidget):
         self.base_width = 320
         self.base_height = 60
         self.expanded_height = 100
-        self.setFixedSize(self.base_width + 40, self.expanded_height + 40) # Padding for shadows
+        # Increased padding to prevent shadow Clipping/UpdateLayeredWindow errors
+        self.padding_w = 80
+        self.padding_h = 80
+        self.setFixedSize(self.base_width + self.padding_w, self.expanded_height + self.padding_h)
         
         # 3. Layout
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        self.main_layout.setContentsMargins(0, 20, 0, 0)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Floating Preview (Above the wedge)
         self.preview_label = QLabel("", self)
@@ -138,15 +142,18 @@ class VoxWedgeUI(QWidget):
 
     def _setup_positions(self):
         screen = QApplication.primaryScreen().availableGeometry()
-        self.center_x = (screen.width() - (self.base_width + 40)) // 2
+        total_w = self.base_width + self.padding_w
+        total_h_active = self.expanded_height + self.padding_h
+        
+        self.center_x = (screen.width() - total_w) // 2
         
         # Geometry for both states
         # Minimized: Tiny thin trigger at the taskbar
-        self.min_geo = QRect(int(self.center_x), int(screen.height() - 15), self.base_width + 40, 15)
+        self.min_geo = QRect(int(self.center_x), int(screen.height() - 15), total_w, 15)
         # Resting: Standard visible height
-        self.rest_geo = QRect(int(self.center_x), int(screen.height() - 85), self.base_width + 40, 85)
+        self.rest_geo = QRect(int(self.center_x), int(screen.height() - 85), total_w, 85)
         # Active: Expanded height for listening
-        self.active_geo = QRect(int(self.center_x), int(screen.height() - 140), self.base_width + 40, 140)
+        self.active_geo = QRect(int(self.center_x), int(screen.height() - total_h_active), total_w, total_h_active)
         
         self.setGeometry(self.min_geo)
 

@@ -107,6 +107,10 @@ class AudioCollector:
         except queue.Empty:
             return None
 
+    def get_latest_chunk(self):
+        """Returns the latest captured chunk (legacy support)."""
+        return self.latest_chunk
+
     def is_speech(self, chunk):
         """VAD check: is this chunk speech? (requires 16-bit PCM)."""
         if chunk is None or len(chunk) != self.frame_size:
