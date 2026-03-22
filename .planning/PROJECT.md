@@ -12,7 +12,8 @@ Turn spoken ideas into perfectly formatted text in any application, with zero la
 
 ### Validated
 
-(None yet — ship to validate)
+- **AUST-01**: Robust multi-threaded audio capture pipeline using `sounddevice` and `webrtcvad`. (Validated in Phase 01: Project Setup & Base Audio)
+
 
 ### Active
 
@@ -22,6 +23,7 @@ Turn spoken ideas into perfectly formatted text in any application, with zero la
 - [ ] **Grammar & Punctuation Layer**: An AI-driven correction layer using free-tier APIs (like Gemini Free Tier) or optimized local LLMs.
 - [ ] **Technical Vocabulary Support**: Specialized handling for coding and technical terms to prevent improper "autocorrect" in IDEs.
 - [ ] **No-Cost Guarantee**: Built using open-source models and free-tier APIs to ensure no running costs for the user.
+- [ ] **Triggering Mechanism**: Support for both global **hotkeys** (e.g., Win+Shift+V) and a **wake word** (e.g., "Vox") to start/stop listening.
 
 ### Out of Scope
 
@@ -45,9 +47,11 @@ Turn spoken ideas into perfectly formatted text in any application, with zero la
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Desktop App | System-wide reach into IDEs/Email/Docs | — Pending |
-| Sentence-level Correction | Better grammar context and reduced "shifting" UI compared to word-level | — Pending |
-| Mixed approach (Local STT + Cloud LLM) | Balanced "any spec" requirement with high-quality grammar correction via free APIs | — Pending |
+| Desktop App | System-wide reach into IDEs/Email/Docs | — Validated |
+| Modular Core | voxpolish/core structure for STT/Grammar/Audio separation | — Validated |
+| sounddevice + webrtcvad | Optimal for low-latency, low-spec silence detection | — Validated |
+| Producer-Consumer Threading | Zero-loss audio capture with asynchronous processing | — Validated |
+
 
 ## Evolution
 
@@ -67,4 +71,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after initialization*
+*Last updated: 2026-03-22 after Phase 01 completion.*
