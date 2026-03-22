@@ -194,17 +194,21 @@ def main():
         polisher = NvidiaPolisher()
         stt = NvidiaSTT()
         
-        # NVIDIA NIM models handle their own authentication via .env
+        # Load configuration for wake words
+        try:
+            with open("config.json", "r") as f:
+                config_data = json.load(f)
+            wake_words = config_data.get("wake_words", ["alexa"])
+        except Exception:
+            wake_words = ["alexa"]
             
         collector = AudioCollector()
         collector.start_stream() # MANDATORY START HARDWARE
         
-        # Wake Word redundant list (Deferred import to prevent crash)
+        # Setup Wake Word with config words
         wake = None
         try:
-            print("Initializing Wake Word Engine...", flush=True)
-            # Default to alexa/hey_jarvis for now to fix the 'self' crash
-            wake_words = ["alexa", "hey_jarvis"]
+            print(f"Initializing Wake Word Engine with {wake_words}...", flush=True)
             wake = WakeWordListener(model_names=wake_words)
         except Exception as e:
             print(f"Wake Word Engine failed to start: {e}. Voice activation disabled.", flush=True)
