@@ -46,8 +46,8 @@ class VoxWedgeUI(QWidget):
         
         # 3. Layout
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-        self.main_layout.setContentsMargins(0, 0, 0, 20)
+        self.main_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        self.main_layout.setContentsMargins(0, 20, 0, 0)
         
         # Floating Preview (Above the wedge)
         self.preview_label = QLabel("", self)
@@ -141,12 +141,14 @@ class VoxWedgeUI(QWidget):
     def _setup_positions(self):
         screen = QApplication.primaryScreen().availableGeometry()
         self.center_x = (screen.width() - self.width()) // 2
-        # Resting Y: Standard visible position (20px above taskbar)
-        self.resting_y = screen.height() - self.height() - 5
-        # Idle Y: Pushed down so only the 'bulge' top shows (~12px)
-        self.idle_y = screen.height() - 45 # Window is tall, so -45 exposes the top curve
         
-        self.move(self.center_x, self.idle_y)
+        # We align to TOP, so:
+        # Resting: Entire container top is visible (offset slightly from taskbar edge)
+        self.resting_y = screen.height() - 110
+        # Idle: Only the top ~15px of our container shows
+        self.idle_y = screen.height() - 35
+        
+        self.move(int(self.center_x), int(self.idle_y))
 
     @pyqtProperty(int)
     def container_height(self):
