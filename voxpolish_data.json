@@ -1,6 +1,21 @@
 {
     "history": [
         {
+            "text": "The",
+            "mode": "standard",
+            "timestamp": "2026-03-22T19:44:51.684722"
+        },
+        {
+            "text": "123 test",
+            "mode": "standard",
+            "timestamp": "2026-03-22T19:43:33.271115"
+        },
+        {
+            "text": "The word is not",
+            "mode": "standard",
+            "timestamp": "2026-03-22T19:41:33.724207"
+        },
+        {
             "text": "Install Numpy and Pandas.",
             "mode": "standard",
             "timestamp": "2026-03-22T19:32:49.253241"

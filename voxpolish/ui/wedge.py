@@ -1,7 +1,7 @@
 import sys
 import os
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QHBoxLayout, QVBoxLayout, QGraphicsDropShadowEffect, QGraphicsOpacityEffect
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, pyqtProperty, pyqtSignal
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, pyqtProperty, pyqtSignal, QPoint
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtSvgWidgets import QSvgWidget
 from voxpolish.ui.dashboard import VoxDashboardUI
@@ -122,16 +122,31 @@ class VoxWedgeUI(QWidget):
         self.pulse_anim.setEasingCurve(QEasingCurve.Type.InOutSine)
         self.pulse_anim.setLoopCount(-1)
 
-        # Height Expansion Animation
+        # Height & Position Animations
         self.expansion_anim = QPropertyAnimation(self, b"container_height")
         self.expansion_anim.setDuration(400)
         self.expansion_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
+        self.pos_anim = QPropertyAnimation(self, b"pos")
+        self.pos_anim.setDuration(450)
+        self.pos_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
         self._is_expanded = False
         self._current_state = "IDLE"
-
-        self._center_on_screen()
+        
+        # Calculate resting and idle positions
+        self._setup_positions()
         self.show()
+
+    def _setup_positions(self):
+        screen = QApplication.primaryScreen().availableGeometry()
+        self.center_x = (screen.width() - self.width()) // 2
+        # Resting Y: Standard visible position (20px above taskbar)
+        self.resting_y = screen.height() - self.height() - 5
+        # Idle Y: Pushed down so only the 'bulge' top shows (~12px)
+        self.idle_y = screen.height() - 45 # Window is tall, so -45 exposes the top curve
+        
+        self.move(self.center_x, self.idle_y)
 
     @pyqtProperty(int)
     def container_height(self):
@@ -154,29 +169,35 @@ class VoxWedgeUI(QWidget):
 
     def enterEvent(self, event):
         """Roll up on hover"""
-        self._animate_expansion(True)
+        self._animate_ui(expand=True, raise_up=True)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         """Roll down on leave (if not busy)"""
+        # Only roll down if idle
         if self._current_state == "IDLE":
-            self._animate_expansion(False)
+            self._animate_ui(expand=False, raise_up=False)
         super().leaveEvent(event)
 
-    def _animate_expansion(self, expand: bool):
-        if self._is_expanded == expand:
-            return
-        self._is_expanded = expand
-        target = self.expanded_height if expand else self.base_height
-        self.expansion_anim.stop()
-        self.expansion_anim.setEndValue(target)
-        self.expansion_anim.start()
+    def _animate_ui(self, expand: bool, raise_up: bool):
+        """Unified animation for both height and position"""
+        # 1. Animate Position (Slide Up/Down)
+        target_y = self.resting_y if raise_up else self.idle_y
+        self.pos_anim.stop()
+        self.pos_anim.setEndValue(QPoint(int(self.center_x), int(target_y)))
+        self.pos_anim.start()
+
+        # 2. Animate Height (Expansion)
+        if self._is_expanded != expand:
+            self._is_expanded = expand
+            target_h = self.expanded_height if expand else self.base_height
+            self.expansion_anim.stop()
+            self.expansion_anim.setEndValue(target_h)
+            self.expansion_anim.start()
 
     def _center_on_screen(self):
-        screen = QApplication.primaryScreen().availableGeometry()
-        x = (screen.width() - self.width()) // 2
-        y = screen.height() - self.height() - 20 # 20px from bottom
-        self.move(x, y)
+        # Deprecated by _setup_positions, but kept for legacy calls
+        self._setup_positions()
 
     def _toggle_dashboard(self):
         if self.dashboard.isVisible():
@@ -209,10 +230,10 @@ class VoxWedgeUI(QWidget):
             self.shadow.setColor(QColor(0, 229, 255, 0))
             # Relax the wedge if mouse isn't over it
             if not self.underMouse():
-                self._animate_expansion(False)
+                self._animate_ui(expand=False, raise_up=False)
             
         elif state == "LISTENING":
-            self._animate_expansion(True) # Expand on wake word!
+            self._animate_ui(expand=True, raise_up=True) # Full reveal!
             self.status_label.setText(text or "Listening...")
             self.shadow.setColor(QColor(0, 229, 255, 100)) # Cyan
             self.pulse_anim.start()
@@ -220,12 +241,13 @@ class VoxWedgeUI(QWidget):
             self.preview_label.show()
             
         elif state == "THINKING":
-            self._animate_expansion(True)
+            self._animate_ui(expand=True, raise_up=True)
             self.status_label.setText(text or "Polishing...")
             self.shadow.setColor(QColor(0, 255, 171, 100)) # Emerald
             self.pulse_anim.start()
             
         elif state == "SUCCESS":
+            self._animate_ui(expand=True, raise_up=True)
             self.status_label.setText(text or "Polished ✓")
             self.shadow.setColor(QColor(0, 255, 171, 200))
             QTimer.singleShot(2000, lambda: self.update_state("IDLE"))
