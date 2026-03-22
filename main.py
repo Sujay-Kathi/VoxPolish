@@ -8,7 +8,6 @@ import traceback
 from dotenv import load_dotenv
 from voxpolish.core.audio import AudioCollector
 from voxpolish.core.stt import NvidiaSTT
-from voxpolish.core.grammar import NvidiaPolisher
 from voxpolish.core.wake import WakeWordListener
 
 from PyQt6.QtWidgets import QApplication
@@ -68,9 +67,8 @@ class VoxWorker(QObject):
     status_changed = pyqtSignal(str) # ['ready', 'listening', 'polishing', 'done', 'error']
     transcription_ready = pyqtSignal(str, str) # text, mode
 
-    def __init__(self, polisher, stt, audio_collector, wake_listener):
+    def __init__(self, stt, audio_collector, wake_listener):
         super().__init__()
-        self.polisher = polisher
         self.stt = stt
         self.audio_collector = audio_collector
         self.wake_listener = wake_listener
@@ -177,7 +175,7 @@ class VoxWorker(QObject):
     def stop_recording(self):
         print("Recording stopped. Polishing...", flush=True)
         self.is_recording = False
-        self.status_changed.emit("polishing")
+        self.status_changed.emit("processing")
         
         raw_audio = self.audio_collector.stop()
         
@@ -192,24 +190,19 @@ class VoxWorker(QObject):
                 print("No clear speech detected.")
                 return
 
-            print(f"Transcribed: {text}")
+            # Clean transcribed text (remove extra spaces/newlines)
+            output_text = text.strip().replace("\n", " ").replace("\r", "")
+            print(f"Final output: {output_text}")
             
-            # 2. Polish
-            polished_text = self.polisher.polish(text, mode=self.current_mode).strip()
-            # CRITICAL: Remove any newlines Gemini might have added to prevent "Auto Enter"
-            polished_text = polished_text.replace("\n", " ").replace("\r", "")
+            # 2. Output (Paste)
+            keyboard.write(output_text)
             
-            print(f"Polished/Verbatim: {polished_text}")
+            # 3. Save to History
+            data_manager.add_history(output_text, self.current_mode)
             
-            # 3. Output (Paste)
-            keyboard.write(polished_text)
-            
-            # 4. Save to History
-            data_manager.add_history(text, self.current_mode)
-            
-            # 5. Notify UI
-            self.transcription_ready.emit(polished_text, self.current_mode)
-            self.status_changed.emit("done")
+            # 4. Notify UI
+            self.transcription_ready.emit(output_text, self.current_mode)
+            self.status_changed.emit("success")
             
         except Exception as e:
             print(f"Error in processing: {e}")
@@ -225,7 +218,6 @@ def main():
         
         # Initialize Core Components
         print("Initializing Core Components...", flush=True)
-        polisher = NvidiaPolisher()
         stt = NvidiaSTT()
         
         # Load configuration for wake words
@@ -254,7 +246,7 @@ def main():
         window.show()
         
         # Setup Worker
-        worker = VoxWorker(polisher, stt, collector, wake)
+        worker = VoxWorker(stt, collector, wake)
         worker_thread = QThread()
         worker.moveToThread(worker_thread)
         

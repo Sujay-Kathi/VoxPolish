@@ -233,7 +233,7 @@ class VoxWedgeUI(QWidget):
         self.pulse_anim.stop()
         self.preview_label.hide()
         
-        if state == "IDLE":
+        if state == "IDLE" or state == "READY":
             self.status_label.setText(text or "Vox Ready")
             self.shadow.setColor(QColor(0, 229, 255, 0))
             # Relax the wedge if mouse isn't over it
@@ -248,22 +248,22 @@ class VoxWedgeUI(QWidget):
             self.preview_label.setText("Vocalize your intent...")
             self.preview_label.show()
             
-        elif state == "THINKING":
+        elif state == "THINKING" or state == "PROCESSING":
             self._animate_ui(state="ACTIVE")
-            self.status_label.setText(text or "Polishing...")
+            self.status_label.setText(text or "Transcribing...")
             self.shadow.setColor(QColor(0, 255, 171, 100)) # Emerald
             self.pulse_anim.start()
             
         elif state == "SUCCESS":
             self._animate_ui(state="ACTIVE")
-            self.status_label.setText(text or "Polished ✓")
-            self.shadow.setColor(QColor(0, 255, 171, 200))
-            QTimer.singleShot(2000, lambda: self.update_state("IDLE"))
+            self.status_label.setText(text or "Transcribed ✓")
+            self.shadow.setColor(QColor(0, 255, 171, 200)) # Emerald
+            QTimer.singleShot(2000, lambda: self.update_state("READY"))
 
         elif state == "ERROR":
             self.status_label.setText(text or "Error")
             self.shadow.setColor(QColor(255, 113, 108, 200)) # Error Red
-            QTimer.singleShot(3000, lambda: self.update_state("IDLE"))
+            QTimer.singleShot(3000, lambda: self.update_state("READY"))
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
