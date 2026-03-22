@@ -1,7 +1,7 @@
 import sys
 import os
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QHBoxLayout, QVBoxLayout, QGraphicsDropShadowEffect, QGraphicsOpacityEffect
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, pyqtProperty, pyqtSignal, QPoint
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, pyqtProperty, pyqtSignal, QPoint, QRect
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtSvgWidgets import QSvgWidget
 from voxpolish.ui.dashboard import VoxDashboardUI
@@ -122,33 +122,33 @@ class VoxWedgeUI(QWidget):
         self.pulse_anim.setEasingCurve(QEasingCurve.Type.InOutSine)
         self.pulse_anim.setLoopCount(-1)
 
-        # Height & Position Animations
-        self.expansion_anim = QPropertyAnimation(self, b"container_height")
-        self.expansion_anim.setDuration(400)
-        self.expansion_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-
-        self.pos_anim = QPropertyAnimation(self, b"pos")
-        self.pos_anim.setDuration(450)
-        self.pos_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        # Improved Performance for Animations
+        self.height_anim = QPropertyAnimation(self, b"geometry")
+        self.height_anim.setDuration(250)
+        self.height_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
         self._is_expanded = False
         self._current_state = "IDLE"
+        self._hover_timer = QTimer(self)
+        self._hover_timer.setSingleShot(True)
+        self._hover_timer.timeout.connect(self._do_expand)
         
-        # Calculate resting and idle positions
         self._setup_positions()
         self.show()
 
     def _setup_positions(self):
         screen = QApplication.primaryScreen().availableGeometry()
-        self.center_x = (screen.width() - self.width()) // 2
+        self.center_x = (screen.width() - (self.base_width + 40)) // 2
         
-        # We align to TOP, so:
-        # Resting: Entire container top is visible (offset slightly from taskbar edge)
-        self.resting_y = screen.height() - 110
-        # Idle: Only the top ~15px of our container shows
-        self.idle_y = screen.height() - 35
+        # Geometry for both states
+        # Minimized: Tiny thin trigger at the taskbar
+        self.min_geo = QRect(int(self.center_x), int(screen.height() - 15), self.base_width + 40, 15)
+        # Resting: Standard visible height
+        self.rest_geo = QRect(int(self.center_x), int(screen.height() - 85), self.base_width + 40, 85)
+        # Active: Expanded height for listening
+        self.active_geo = QRect(int(self.center_x), int(screen.height() - 140), self.base_width + 40, 140)
         
-        self.move(int(self.center_x), int(self.idle_y))
+        self.setGeometry(self.min_geo)
 
     @pyqtProperty(int)
     def container_height(self):
@@ -170,35 +170,41 @@ class VoxWedgeUI(QWidget):
         self.shadow.setColor(color)
 
     def enterEvent(self, event):
-        """Roll up on hover"""
-        self._animate_ui(expand=True, raise_up=True)
+        """Debounced roll up"""
+        self._hover_timer.start(50) # Small delay to prevent accidental roll-up
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        """Roll down on leave (if not busy)"""
-        # Only roll down if idle
+        """Roll down if not busy"""
+        self._hover_timer.stop()
         if self._current_state == "IDLE":
-            self._animate_ui(expand=False, raise_up=False)
+            self._animate_ui(state="MINIMIZED")
         super().leaveEvent(event)
 
-    def _animate_ui(self, expand: bool, raise_up: bool):
-        """Unified animation for both height and position"""
-        # 1. Animate Position (Slide Up/Down)
-        target_y = self.resting_y if raise_up else self.idle_y
-        self.pos_anim.stop()
-        self.pos_anim.setEndValue(QPoint(int(self.center_x), int(target_y)))
-        self.pos_anim.start()
+    def _do_expand(self):
+        self._animate_ui(state="RESTING")
 
-        # 2. Animate Height (Expansion)
-        if self._is_expanded != expand:
-            self._is_expanded = expand
-            target_h = self.expanded_height if expand else self.base_height
-            self.expansion_anim.stop()
-            self.expansion_anim.setEndValue(target_h)
-            self.expansion_anim.start()
+    def _animate_ui(self, state="RESTING"):
+        """Performance optimized slide + scale"""
+        target_geo = self.min_geo
+        target_h = self.base_height
+        
+        if state == "RESTING":
+            target_geo = self.rest_geo
+            target_h = self.base_height
+        elif state == "ACTIVE":
+            target_geo = self.active_geo
+            target_h = self.expanded_height
+
+        # Start combined geometry animation (Faster than separate pos/size)
+        self.height_anim.stop()
+        self.height_anim.setEndValue(target_geo)
+        self.height_anim.start()
+        
+        # Internal container resize
+        self.container.setFixedHeight(target_h)
 
     def _center_on_screen(self):
-        # Deprecated by _setup_positions, but kept for legacy calls
         self._setup_positions()
 
     def _toggle_dashboard(self):
@@ -232,10 +238,10 @@ class VoxWedgeUI(QWidget):
             self.shadow.setColor(QColor(0, 229, 255, 0))
             # Relax the wedge if mouse isn't over it
             if not self.underMouse():
-                self._animate_ui(expand=False, raise_up=False)
+                self._animate_ui(state="MINIMIZED")
             
         elif state == "LISTENING":
-            self._animate_ui(expand=True, raise_up=True) # Full reveal!
+            self._animate_ui(state="ACTIVE") 
             self.status_label.setText(text or "Listening...")
             self.shadow.setColor(QColor(0, 229, 255, 100)) # Cyan
             self.pulse_anim.start()
@@ -243,13 +249,13 @@ class VoxWedgeUI(QWidget):
             self.preview_label.show()
             
         elif state == "THINKING":
-            self._animate_ui(expand=True, raise_up=True)
+            self._animate_ui(state="ACTIVE")
             self.status_label.setText(text or "Polishing...")
             self.shadow.setColor(QColor(0, 255, 171, 100)) # Emerald
             self.pulse_anim.start()
             
         elif state == "SUCCESS":
-            self._animate_ui(expand=True, raise_up=True)
+            self._animate_ui(state="ACTIVE")
             self.status_label.setText(text or "Polished ✓")
             self.shadow.setColor(QColor(0, 255, 171, 200))
             QTimer.singleShot(2000, lambda: self.update_state("IDLE"))
