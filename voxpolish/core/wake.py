@@ -7,8 +7,9 @@ class WakeWordListener:
     Wake word detection using openwakeword.
     Handles binary loading failures gracefully.
     """
-    def __init__(self, model_names=None):
+    def __init__(self, model_names=None, threshold=0.5):
         self.model_names = model_names or ["alexa", "hey_mycroft"]
+        self.threshold = threshold
         self.oww_model = None
         self.is_active = False
         
@@ -44,7 +45,7 @@ class WakeWordListener:
                 # This call can crash if ONNXRuntime is broken
                 self.oww_model = Model(wakeword_models=model_paths)
                 self.is_active = True
-                print("Wake Word detection active.", flush=True)
+                print(f"Wake Word detection active (Threshold: {self.threshold}).", flush=True)
             else:
                 print("Wake models not found in any search path.", flush=True)
                 
@@ -66,7 +67,7 @@ class WakeWordListener:
             prediction = self.oww_model.predict(chunk)
             # Returns a dict of model_name: score
             for name, score in prediction.items():
-                if score > 0.5: # Threshold
+                if score > self.threshold:
                     print(f"WAKE WORD DETECTED: {name} (Score: {score:.2f})", flush=True)
                     return True
         except Exception:

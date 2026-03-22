@@ -116,15 +116,24 @@ class VoxWorker(QObject):
             time.sleep(1)
 
     def _wake_word_loop(self):
-        """Background loop for wake word detection."""
+        """Background loop for wake word detection. Processes every chunk sequentially."""
         print("Wake Word detection active...", flush=True)
         while True:
             if not self.is_recording:
-                chunk = self.audio_collector.get_latest_chunk()
+                # Use the new blocking getter to ensure we don't miss any audio data
+                chunk = self.audio_collector.get_next_wake_chunk()
                 if chunk is not None and len(chunk) > 0:
                     if self.wake_listener.predict(chunk):
+                        # Use a small delay after detection to avoid double triggers
+                        # and allow the toggle to complete
                         self.toggle_recording("standard")
-            time.sleep(0.05)
+                        time.sleep(1.0) 
+            else:
+                # DRAIN the wake queue while recording so we don't process 
+                # minutes of old audio when we stop recording
+                while not self.audio_collector.wake_queue.empty():
+                    self.audio_collector.wake_queue.get_nowait()
+                time.sleep(0.1)
 
     def toggle_recording(self, mode):
         """Starts or stops the recording process."""
@@ -224,8 +233,10 @@ def main():
             with open("config.json", "r") as f:
                 config_data = json.load(f)
             wake_words = config_data.get("wake_words", ["alexa"])
+            wake_threshold = config_data.get("wake_threshold", 0.5)
         except Exception:
             wake_words = ["alexa"]
+            wake_threshold = 0.5
             
         collector = AudioCollector()
         collector.start_stream() # MANDATORY START HARDWARE
@@ -233,8 +244,8 @@ def main():
         # Setup Wake Word with config words
         wake = None
         try:
-            print(f"Initializing Wake Word Engine with {wake_words}...", flush=True)
-            wake = WakeWordListener(model_names=wake_words)
+            print(f"Initializing Wake Word Engine with {wake_words} (Threshold: {wake_threshold})...", flush=True)
+            wake = WakeWordListener(model_names=wake_words, threshold=wake_threshold)
         except Exception as e:
             print(f"Wake Word Engine failed to start: {e}. Voice activation disabled.", flush=True)
         

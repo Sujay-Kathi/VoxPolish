@@ -19,9 +19,10 @@ class AudioCollector:
         self.vad = webrtcvad.Vad(3)
         
         # Buffers & Queues
-        self.audio_queue = queue.Queue() # Raw stream -> Consumer
+        self.audio_queue = queue.Queue() # Raw stream -> Consumer (STT)
+        self.wake_queue = queue.Queue()  # Raw stream -> Wake Word engine
         self.speech_buffer = [] # Speech frames only (for STT)
-        self.latest_chunk = None # Single latest chunk for wake word
+        self.latest_chunk = None # Single latest chunk (legacy support)
         
         # Flags
         self.is_running = threading.Event()
@@ -32,12 +33,13 @@ class AudioCollector:
         self._consumer_thread = None
 
     def _audio_callback(self, indata, frames, time, status):
-        """Simple callback: pushes raw int16 data into the queue."""
+        """Simple callback: pushes raw int16 data into the queues."""
         if status:
             print(f"SD Status: {status}", flush=True)
-        # Put a flat copy of the chunk into the queue
+        # Put a flat copy of the chunk into the queues
         chunk = indata.flatten().copy()
         self.audio_queue.put(chunk)
+        self.wake_queue.put(chunk)
         self.latest_chunk = chunk
 
     def start_stream(self):
@@ -61,7 +63,7 @@ class AudioCollector:
         print("Microphone hardware and consumer thread started.", flush=True)
 
     def _consume_audio(self):
-        """Background thread that drains the queue and fills the speech buffer."""
+        """Background thread that drains the audio_queue and fills the speech buffer."""
         while self.is_running.is_set():
             try:
                 # Use a small timeout to keep checking is_running
@@ -83,6 +85,8 @@ class AudioCollector:
     def start(self):
         """Start capturing speech (called by the UI worker)."""
         self.speech_buffer = []
+        # Clear wake queue to avoid triggering on old audio when listening starts? 
+        # No, wake word only runs when not recording.
         self.is_capturing_speech.set()
 
     def stop(self):
@@ -96,9 +100,12 @@ class AudioCollector:
             return np.array([], dtype='int16')
         return np.concatenate(self.speech_buffer)
 
-    def get_latest_chunk(self):
-        """Returns the latest captured chunk (for wake word)."""
-        return self.latest_chunk
+    def get_next_wake_chunk(self):
+        """Returns the next chunk from the wake queue (blocking)."""
+        try:
+            return self.wake_queue.get(timeout=0.2)
+        except queue.Empty:
+            return None
 
     def is_speech(self, chunk):
         """VAD check: is this chunk speech? (requires 16-bit PCM)."""
