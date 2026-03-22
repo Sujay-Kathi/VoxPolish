@@ -26,8 +26,8 @@ VoxPolish will be built in six strategic phases, moving from the foundational "R
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Environment initialization and dependency scaffolding.
-- [ ] 01-02: Multi-threaded audio capture implementation.
+- [x] 01-01: Environment initialization and dependency scaffolding.
+- [x] 01-02: Multi-threaded audio capture implementation.
 
 ### Phase 2: Local STT & Raw Injection
 **Goal**: Build the core "Speech-to-Text" functionality using local models and global OS hotkeys.
