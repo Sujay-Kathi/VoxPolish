@@ -30,14 +30,18 @@ class WakeWordListener:
                 # 2. Check _internal
                 p2 = os.path.join(base_path, "_internal", "openwakeword", "resources", "models", f"{name}_v0.1.onnx")
                 
-                if os.path.exists(p1):
+                # Helper to check if file is a valid model (not a 9-byte placeholder)
+                def is_valid(path):
+                    return os.path.exists(path) and os.path.getsize(path) > 1024
+                
+                if is_valid(p1):
                     model_paths.append(p1)
-                elif os.path.exists(p2):
+                elif is_valid(p2):
                     model_paths.append(p2)
                 else:
                     # Fallback to the package's internal path
                     m_path = os.path.join(os.path.dirname(openwakeword.__file__), "resources", "models", f"{name}_v0.1.onnx")
-                    if os.path.exists(m_path):
+                    if is_valid(m_path):
                         model_paths.append(m_path)
 
             if model_paths:

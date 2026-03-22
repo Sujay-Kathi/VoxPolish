@@ -4,9 +4,7 @@
     "wake_word_enabled": true,
     "wake_words": [
         "alexa",
-        "hey_jarvis",
-        "hey_mycroft",
-        "hey_vox"
+        "hey_jarvis"
     ],
     "wake_threshold": 0.4,
     "model_size": "tiny.en"
