@@ -1,0 +1,10 @@
+# VoxPolish Dependencies
+# Core stack for audio, research, and STT
+
+sounddevice>=0.4.6
+numpy>=1.24.0
+webrtcvad-wheels>=2.0.10.post1
+google-generativeai>=0.3.0
+python-dotenv>=1.0.0
+keyboard>=0.13.5
+# PyQt6>=6.4.0 (for Phase 6 UI)
