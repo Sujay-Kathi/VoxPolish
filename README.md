@@ -6,7 +6,7 @@
 
 ## 🚀 Awesome Features
 
-- 🎧 **Wake Word Detection**: Start recording just by saying *"Alexa"* or *"Hey Mycroft"*.
+- 🎧 **Wake Word Detection**: Start recording just by saying *"Hey Vox"* or *"Alexa"* or *"Hey Jarvis"*.
 - 🎹 **Global Hotkeys**: 
   - `Ctrl + Alt + Z`: Basic polishing for emails and chats.
   - `Ctrl + Alt + C`: Special **Coding Mode** for technical documentation and code comments.

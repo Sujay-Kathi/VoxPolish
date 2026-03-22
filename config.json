@@ -2,6 +2,6 @@
     "hotkey": "ctrl+alt+z",
     "coding_hotkey": "ctrl+alt+c",
     "wake_word_enabled": true,
-    "wake_words": ["hey_vox"],
+    "wake_words": ["alexa", "hey_jarvis"],
     "model_size": "tiny.en"
 }
