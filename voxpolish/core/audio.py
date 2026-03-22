@@ -78,19 +78,22 @@ class AudioCollector:
         print(f"Recording started... (SR={self.sample_rate}, Block={self.frame_size})", flush=True)
 
     def stop(self):
-        """Stop recording and processing."""
+        """Stop recording and processing. Returns captured speech buffer."""
         if not self.is_recording.is_set():
-            return
+            return np.array([], dtype='int16')
             
         self.is_recording.clear()
         if self.stream:
             self.stream.stop()
             self.stream.close()
+            self.stream = None # Clean up
         
         if self.consumer_thread:
             self.consumer_thread.join()
+            self.consumer_thread = None # Clean up
         
         print("Recording stopped.", flush=True)
+        return self.get_captured_audio()
 
     def get_captured_audio(self):
         """Returns the concatenated speech buffer as a single numpy array."""
