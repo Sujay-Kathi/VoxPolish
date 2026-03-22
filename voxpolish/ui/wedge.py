@@ -1,8 +1,8 @@
 import sys
 import os
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QHBoxLayout, QVBoxLayout, QGraphicsDropShadowEffect, QGraphicsOpacityEffect
+from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QHBoxLayout, QVBoxLayout, QGraphicsDropShadowEffect, QGraphicsOpacityEffect, QMenu
 from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, pyqtProperty, pyqtSignal, QPoint, QRect
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QAction
 from PyQt6.QtSvgWidgets import QSvgWidget
 from voxpolish.ui.dashboard import VoxDashboardUI
 
@@ -175,6 +175,36 @@ class VoxWedgeUI(QWidget):
         color = self.shadow.color()
         color.setAlpha(value)
         self.shadow.setColor(color)
+
+    def contextMenuEvent(self, event):
+        """Right-click menu for quick actions like Quit"""
+        menu = QMenu(self)
+        menu.setWindowFlags(Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #0c0e12;
+                color: #f6f6fc;
+                border: 1px solid rgba(129, 236, 255, 0.2);
+                border-radius: 12px;
+                padding: 5px;
+            }
+            QMenu::item {
+                padding: 8px 12px 8px 12px;
+                border-radius: 6px;
+                margin: 2px;
+            }
+            QMenu::item:selected {
+                background-color: rgba(255, 113, 108, 0.1);
+                color: #ff716c;
+            }
+        """)
+        
+        quit_action = QAction("Quit VoxPolish", self)
+        quit_action.triggered.connect(QApplication.instance().quit)
+        menu.addAction(quit_action)
+        
+        menu.exec(event.globalPos())
 
     def enterEvent(self, event):
         """Debounced roll up - only when idle"""

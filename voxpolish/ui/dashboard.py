@@ -118,14 +118,38 @@ class VoxDashboardUI(QWidget):
         
         self.scroll.setWidget(self.history_content)
         
+        # Quit Button
+        self.quit_btn = QPushButton("Quit VoxPolish")
+        self.quit_btn.setFixedHeight(45)
+        self.quit_btn.setFont(QFont("Inter", 10, QFont.Weight.Bold))
+        self.quit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.quit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 113, 108, 0.05);
+                border: 1px solid rgba(255, 113, 108, 0.2);
+                border-radius: 12px;
+                color: #ff716c;
+                margin-top: 10px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 113, 108, 0.15);
+                border: 1px solid rgba(255, 113, 108, 0.4);
+            }
+        """)
+        self.quit_btn.clicked.connect(self._quit_app)
+        
         container_layout.addLayout(header_layout)
         container_layout.addLayout(metrics_layout)
         container_layout.addWidget(history_title)
         container_layout.addWidget(self.scroll)
+        container_layout.addWidget(self.quit_btn)
         
         self.main_layout.addWidget(self.container)
-        
         self.refresh_history()
+
+    def _quit_app(self):
+        from PyQt6.QtWidgets import QApplication
+        QApplication.quit()
 
     def add_history_item(self, text, mode, timestamp=""):
         time_label = f" ({timestamp[:16].replace('T', ' ')})" if timestamp else ""
