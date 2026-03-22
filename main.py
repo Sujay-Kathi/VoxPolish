@@ -139,6 +139,31 @@ class VoxWorker(QObject):
         self.is_recording = True
         self.status_changed.emit("listening")
         self.audio_collector.start()
+        
+        # Start auto-stop monitoring thread
+        threading.Thread(target=self._monitor_silence, daemon=True).start()
+
+    def _monitor_silence(self):
+        """Background thread to detect end-of-speech silence."""
+        silence_threshold = 1.4  # seconds of silence before auto-stop
+        max_silence_chunks = int(silence_threshold / 0.03) # 30ms frames
+        silence_counter = 0
+        
+        # Initial grace period (allow time to start talking)
+        time.sleep(1.0)
+        
+        while self.is_recording:
+            chunk = self.audio_collector.get_latest_chunk()
+            if chunk is not None and not self.audio_collector.is_speech(chunk):
+                silence_counter += 1
+            else:
+                silence_counter = 0 # Reset on any speech
+                
+            if silence_counter >= max_silence_chunks:
+                print("Auto-Endpoint: Silence detected.", flush=True)
+                self.stop_recording()
+                break
+            time.sleep(0.03)
 
     def stop_recording(self):
         print("Recording stopped. Polishing...", flush=True)
