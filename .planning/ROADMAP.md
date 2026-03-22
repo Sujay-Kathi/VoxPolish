@@ -40,8 +40,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Faster-Whisper integration and model loading logic.
-- [ ] 02-02: Global hotkey and system-wide keyboard injection.
+- [x] 02-01: Faster-Whisper integration and model loading logic.
+- [x] 02-02: Global hotkey and system-wide keyboard injection.
 
 ### Phase 3: AI Polisher (Grammar API)
 **Goal**: Transform raw speech into "polished" text using the Gemini 3 Flash API.
