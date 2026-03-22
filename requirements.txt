@@ -1,16 +1,13 @@
-# VoxPolish Dependencies
+# VoxPolish Dependencies - NVIDIA NIM STACK (2025)
 # Core stack for audio, research, and STT
 
 sounddevice>=0.4.6
 numpy>=1.24.0
 webrtcvad-wheels>=2.0.10.post1
-faster-whisper>=0.10.0
-google-genai
+# Removed local faster-whisper/ctranslate2 to prevent binary crashes on Windows
 python-dotenv>=1.0.0
+requests>=2.31.0
 keyboard>=0.13.5
 openwakeword>=0.5.1
 onnxruntime>=1.15.0
 PyQt6>=6.4.0
-
-
-

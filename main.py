@@ -7,8 +7,8 @@ import threading
 import traceback
 from dotenv import load_dotenv
 from voxpolish.core.audio import AudioCollector
-from voxpolish.core.stt import WhisperSTT
-from voxpolish.core.grammar import GeminiPolisher
+from voxpolish.core.stt import NvidiaSTT
+from voxpolish.core.grammar import NvidiaPolisher
 from voxpolish.core.wake import WakeWordListener
 
 from PyQt6.QtWidgets import QApplication
@@ -57,7 +57,7 @@ def resource_path(relative_path):
     except Exception:
         return os.path.join(os.path.abspath("."), relative_path)
 
-# Load .env for GEMINI_API_KEY
+# Load .env for API Credentials
 load_dotenv()
 
 class VoxWorker(QObject):
@@ -191,13 +191,10 @@ def main():
         
         # Initialize Core Components
         print("Initializing Core Components...", flush=True)
-        polisher = GeminiPolisher()
-        stt = WhisperSTT()
+        polisher = NvidiaPolisher()
+        stt = NvidiaSTT()
         
-        # Connect cloud fallback
-        if polisher.client:
-            print("Binding Gemini Cloud Fallback to STT engine...", flush=True)
-            stt.set_cloud_client(polisher.client)
+        # NVIDIA NIM models handle their own authentication via .env
             
         collector = AudioCollector()
         collector.start_stream() # MANDATORY START HARDWARE

@@ -1,77 +1,97 @@
 import os
-from google import genai
-from google.genai import types
+import requests
+import json
 from dotenv import load_dotenv
 
-class GeminiPolisher:
+class NvidiaPolisher:
     """
-    Grammar and Punctuation Polisher using Google Gemini 2.5-Flash.
-    Supports Dual Modes: Prose (Friendly) and Technical (Coding).
+    Grammar and Punctuation Polisher using NVIDIA NIM (Llama 3.1 70B).
+    Strictly preserves the original word-for-word spoken sequence.
     """
     def __init__(self, api_key=None):
         if api_key is None:
+            # Load from .env if not provided directly
             import sys
             base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
             env_path = os.path.join(base_path, ".env")
             
-            # Use _internal if needed
             if not os.path.exists(env_path):
                 alt_env = os.path.join(base_path, "_internal", ".env")
                 if os.path.exists(alt_env):
                     env_path = alt_env
             
             load_dotenv(env_path)
-            api_key = os.getenv("GEMINI_API_KEY")
+            api_key = os.getenv("NVIDIA_API_KEY")
             
         if not api_key:
-            print("Warning: GEMINI_API_KEY not found. Grammar polishing skipped.", flush=True)
-            self.client = None
-            self.prose_instruction = None
-            self.technical_instruction = None
+            print("Warning: NVIDIA_API_KEY not found. Grammar polishing will be skipped.", flush=True)
+            self.api_key = None
             return
 
-        self.client = genai.Client(api_key=api_key)
-        self.model_id = "gemini-2.5-flash"
+        self.api_key = api_key
+        self.api_url = "https://integrate.api.nvidia.com/v1/chat/completions"
+        self.model_id = "meta/llama-3.1-70b-instruct"
         
-        # Prose Mode: Only add punctuation, NO CHANGING WORDS
+        # PROSE MODE: Strict verbatim punctuation
         self.prose_instruction = (
-            "Restore punctuation and capitalization to the following text. "
-            "DO NOT CHANGE, ADD, OR REMOVE ANY WORDS. "
-            "Keep the phrasing EXACTLY as provided. Verbatim text only."
+            "You are a verbatim text formatter. Restore punctuation and capitalization to the text. "
+            "CRITICAL: DO NOT change, add, or remove any words. KEEP the exact word-for-word spoken sequence. "
+            "Output ONLY the corrected text. Do not explain."
         )
 
-        # Technical Mode: Preserve case-sensitivity, no extra prose
+        # TECHNICAL MODE: Preserve code-style case sensitivity and formatting
         self.technical_instruction = (
-            "Restore technical punctuation and capitalization. "
-            "DO NOT REPHRASE. DO NOT ADD INTRODUCTIONS. "
-            "Maintain exact word order and formatting. "
+            "Restore technical punctuation and capitalization for a developer context. "
+            "DO NOT rephrase. Keep technical terms exactly as spoken but formatted correctly (e.g., 'setup py' becomes 'setup.py'). "
+            "DO NOT change word order. Output ONLY the formatted text."
         )
 
     def polish(self, text, mode='prose'):
         """
-        Sends raw text to Gemini and returns the polished version based on the mode.
-        mode: 'prose' or 'technical'
+        Sends raw text to NVIDIA NIM and returns the polished version.
+        mode: 'prose' or 'technical' (mapped to 'standard'/'coding' from main)
         """
-        if not self.client or not text.strip():
+        if not self.api_key or not text.strip():
             return text
 
-        instruction = self.technical_instruction if mode == 'technical' else self.prose_instruction
+        # Map UI modes to instructions
+        instruction = self.technical_instruction if mode in ['technical', 'coding'] else self.prose_instruction
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model_id,
-                contents=text,
-                config=types.GenerateContentConfig(
-                    system_instruction=instruction
-                )
-            )
-            polished_text = response.text.strip()
-            return polished_text if polished_text else text
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": self.model_id,
+                "messages": [
+                    {"role": "system", "content": instruction},
+                    {"role": "user", "content": text}
+                ],
+                "temperature": 0.1, # Low temperature for max predictability
+                "top_p": 0.7,
+                "max_tokens": 1024
+            }
+
+            response = requests.post(self.api_url, headers=headers, json=payload, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            polished_text = data['choices'][0]['message']['content'].strip()
+            
+            # Final sanity check: if the model drastically changed length, fallback to raw
+            if len(polished_text.split()) > len(text.split()) + 5 or len(polished_text.split()) < len(text.split()) - 5:
+                print("Warning: Model rephrased too aggressively. Using raw text.")
+                return text
+                
+            return polished_text
+            
         except Exception as e:
-            print(f"Gemini API Error ({mode}): {e}", flush=True)
+            print(f"NVIDIA API Error ({mode}): {e}", flush=True)
             return text
 
 if __name__ == "__main__":
-    polisher = GeminiPolisher()
-    test_code = "find all items in the list and then filter by category"
-    print(f"Technical: {polisher.polish(test_code, mode='technical')}")
+    polisher = NvidiaPolisher()
+    test_text = "i am going toi get the nividia nim apis for the model"
+    print(f"Polishing Test: {polisher.polish(test_text)}")
