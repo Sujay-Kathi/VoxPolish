@@ -147,8 +147,8 @@ class VoxWorker(QObject):
         self.status_changed.emit("listening")
         self.audio_collector.start()
         
-        # Start auto-stop monitoring thread
-        threading.Thread(target=self._monitor_silence, daemon=True).start()
+        # Disabled auto-stop monitoring per user request - user will stop manually with hotkey
+        # threading.Thread(target=self._monitor_silence, daemon=True).start()
 
     def _monitor_silence(self):
         """Background thread to detect end-of-speech silence."""
