@@ -7,3 +7,8 @@ outputs/
 dist/
 build/
 *.spec
+.planning/
+.agent/
+.ruff_cache/
+build/
+dist/

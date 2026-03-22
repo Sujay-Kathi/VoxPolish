@@ -54,8 +54,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Gemini API client and sentence-buffering logic.
-- [ ] 03-02: Polished text injection and replacement strategy.
+- [x] 03-01: Gemini API client and sentence-buffering logic.
+- [x] 03-02: Polished text injection and replacement strategy.
 
 ### Phase 4: Technical Presets (Coding Mode)
 **Goal**: Enable specialized "technical" mode to ensure IDE-compatibility.
@@ -68,7 +68,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: Advanced system prompting and context-aware filtering.
+- [x] 04-01: Advanced system prompting and context-aware filtering.
 
 ### Phase 5: Wake Word ("Vox") Triggering
 **Goal**: Add hands-free "Vox" activation using the openWakeWord engine.
@@ -80,7 +80,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 05-01: openWakeWord integration and background listener thread.
+- [x] 05-01: openWakeWord integration and background listener thread.
 
 ### Phase 6: Visual Feedback & UI
 **Goal**: Provide a lightweight desktop interface for status and configuration.
@@ -93,8 +93,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: PyQt6 System Tray and Status Overlay implementation.
-- [ ] 06-02: Settings management and UI refinement.
+- [x] 06-01: PyQt6 System Tray and Status Overlay implementation.
+- [x] 06-02: Settings management and UI refinement.
 
 ## Progress
 

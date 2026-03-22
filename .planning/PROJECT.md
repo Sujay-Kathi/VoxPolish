@@ -1,4 +1,4 @@
-# VoxPolish
+# VoxPolish (v1.0 Shipped) 🎙️✨
 
 ## What This Is
 

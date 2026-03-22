@@ -1,72 +1,51 @@
+import sounddevice as sd
+import numpy as np
 import queue
 import threading
-import numpy as np
-import sounddevice as sd
 import webrtcvad
-import time
 
 class AudioCollector:
     """
-    Producer-Consumer audio capture using sounddevice and webrtcvad.
-    Captures raw 16-bit PCM audio @ 16kHz in 30ms frames.
+    Continuous microphone stream manager.
+    Refactored to be 'always-on' to support both wake-word 
+    detection and speech-to-STT capture without MIC re-initialization.
     """
-    def __init__(self, sample_rate=16000, frame_duration_ms=30, vad_aggressiveness=3):
+    def __init__(self, sample_rate=16000, frame_duration_ms=30):
         self.sample_rate = sample_rate
         self.frame_duration_ms = frame_duration_ms
         self.frame_size = int(sample_rate * frame_duration_ms / 1000)
-        self.vad = webrtcvad.Vad(vad_aggressiveness)
         
-        self.audio_queue = queue.Queue()
-        self.is_recording = threading.Event()
-        self.speech_buffer = []
+        # WebRTCVAD initialization (Mode 3 is most aggressive)
+        self.vad = webrtcvad.Vad(3)
         
+        # Buffers & Queues
+        self.audio_queue = queue.Queue() # Raw stream -> Consumer
+        self.speech_buffer = [] # Speech frames only (for STT)
+        self.latest_chunk = None # Single latest chunk for wake word
+        
+        # Flags
+        self.is_running = threading.Event()
+        self.is_capturing_speech = threading.Event() # Controls if data goes to speech_buffer
+        
+        # Multi-threading
         self.stream = None
-        self.consumer_thread = None
+        self._consumer_thread = None
 
-    def _audio_callback(self, indata, frames, time_info, status):
-        """Producer: callback for sounddevice InputStream."""
+    def _audio_callback(self, indata, frames, time, status):
+        """Simple callback: pushes raw int16 data into the queue."""
         if status:
-            print(f"Status bit: {status}", flush=True)
-        # Push raw int16 data into the queue
-        self.audio_queue.put(indata.copy())
+            print(f"SD Status: {status}", flush=True)
+        # Put a flat copy of the chunk into the queue
+        chunk = indata.flatten().copy()
+        self.audio_queue.put(chunk)
+        self.latest_chunk = chunk
 
-    def _consume_audio(self):
-        """Consumer: Extract frames from queue and run VAD."""
-        print("Audio consumer thread started.", flush=True)
-        while self.is_recording.is_set() or not self.audio_queue.empty():
-            try:
-                # get chunk (blocksize=480 for 30ms @ 16k)
-                chunk = self.audio_queue.get(timeout=0.1)
-                
-                # Convert to bytes for webrtcvad
-                raw_bytes = chunk.tobytes()
-                
-                # VAD check
-                is_speech = self.vad.is_speech(raw_bytes, self.sample_rate)
-                
-                if is_speech:
-                    self.speech_buffer.append(chunk)
-                
-                # Logic for triggering STT would go here in later phases
-                
-            except queue.Empty:
-                continue
-        print("Audio consumer thread stopped.", flush=True)
-
-    def start(self):
-        """Start the audio stream and consumer thread."""
-        if self.is_recording.is_set():
+    def start_stream(self):
+        """Opens the hardware microphone stream 'always-on'."""
+        if self.stream is not None:
             return
             
-        self.is_recording.set()
-        self.speech_buffer = []
-        
-        # Start consumer
-        self.consumer_thread = threading.Thread(target=self._consume_audio)
-        self.consumer_thread.start()
-        
-        # Start recording with sounddevice
-        # blocksize=480 ensures 30ms chunks at 16000Hz
+        self.is_running.set()
         self.stream = sd.InputStream(
             samplerate=self.sample_rate,
             channels=1,
@@ -75,36 +54,54 @@ class AudioCollector:
             callback=self._audio_callback
         )
         self.stream.start()
-        print(f"Recording started... (SR={self.sample_rate}, Block={self.frame_size})", flush=True)
+        
+        # Start the background consumer thread
+        self._consumer_thread = threading.Thread(target=self._consume_audio, daemon=True)
+        self._consumer_thread.start()
+        print("Microphone hardware and consumer thread started.", flush=True)
 
-    def stop(self):
-        """Stop recording and processing. Returns captured speech buffer."""
-        if not self.is_recording.is_set():
-            return np.array([], dtype='int16')
-            
-        self.is_recording.clear()
+    def _consume_audio(self):
+        """Background thread that drains the queue and fills the speech buffer."""
+        while self.is_running.is_set():
+            try:
+                # Use a small timeout to keep checking is_running
+                chunk = self.audio_queue.get(timeout=0.1)
+                if self.is_capturing_speech.is_set():
+                    self.speech_buffer.append(chunk)
+            except queue.Empty:
+                continue
+
+    def stop_hardware(self):
+        """Completely shuts down the hardware stream."""
+        self.is_running.clear()
         if self.stream:
             self.stream.stop()
             self.stream.close()
-            self.stream = None # Clean up
-        
-        if self.consumer_thread:
-            self.consumer_thread.join()
-            self.consumer_thread = None # Clean up
-        
-        print("Recording stopped.", flush=True)
+            self.stream = None
+        print("Microphone hardware stopped.", flush=True)
+
+    def start(self):
+        """Start capturing speech (called by the UI worker)."""
+        self.speech_buffer = []
+        self.is_capturing_speech.set()
+
+    def stop(self):
+        """Stop capturing speech and return the buffer."""
+        self.is_capturing_speech.clear()
         return self.get_captured_audio()
 
     def get_captured_audio(self):
-        """Returns the concatenated speech buffer as a single numpy array."""
+        """Returns concatenated speech buffer as int16."""
         if not self.speech_buffer:
             return np.array([], dtype='int16')
         return np.concatenate(self.speech_buffer)
 
-if __name__ == "__main__":
-    # Test stub
-    collector = AudioCollector()
-    collector.start()
-    time.sleep(3)
-    collector.stop()
-    print(f"Captured {len(collector.get_captured_audio())} samples.")
+    def get_latest_chunk(self):
+        """Returns the latest captured chunk (for wake word)."""
+        return self.latest_chunk
+
+    def is_speech(self, chunk):
+        """VAD check: is this chunk speech? (requires 16-bit PCM)."""
+        if chunk is None or len(chunk) != self.frame_size:
+            return False
+        return self.vad.is_speech(chunk.tobytes(), self.sample_rate)

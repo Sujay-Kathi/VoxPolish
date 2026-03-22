@@ -1,4 +1,6 @@
 {
     "hotkey": "ctrl+alt+z",
+    "coding_hotkey": "ctrl+alt+c",
+    "wake_word_enabled": true,
     "model_size": "tiny.en"
 }
