@@ -5,18 +5,18 @@ import sys
 import io
 import wave
 import traceback
-import requests
-import json
+import grpc
+import riva.client
 from dotenv import load_dotenv
 
 class NvidiaSTT:
     """
-    STT Engine using NVIDIA NIM ASR (Parakeet).
-    Replaces Gemini for verbatim transcription.
+    STT Engine using NVIDIA NIM/Riva (Hosted gRPC).
+    Optimized for the latest Riva Python client and hosted NVCF endpoints.
     """
     def __init__(self, model_size="default", device="auto", compute_type="default"):
         self.api_key = None
-        # Use the same .env logic as grammar.py
+        # Load .env
         import sys
         base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
         env_path = os.path.join(base_path, ".env")
@@ -28,65 +28,67 @@ class NvidiaSTT:
         load_dotenv(env_path)
         self.api_key = os.getenv("NVIDIA_API_KEY")
         
-        # Hosted NVIDIA ASR Endpoint (Build.nvidia.com style)
-        self.api_url = "https://integrate.api.nvidia.com/v1/audio/transcriptions"
-        self.model_id = "nvidia/parakeet-ctc-1.1b" # Standard Parakeet choice
+        # Hosted NVCF URI for Riva/ASR
+        self.uri = "grpc.nvcf.nvidia.com:443"
+        # Parakeet CTC 1.1b Function ID
+        self.function_id = "1598d209-5e27-4d3c-8079-4751568b1081"
         
-        print("Initializing NVIDIA NIM STT Engine...", flush=True)
+        print("Initializing NVIDIA gRPC STT Engine...", flush=True)
 
     def transcribe(self, audio_data):
         if audio_data is None or len(audio_data) == 0:
             return ""
 
         if not self.api_key:
-            print("ERROR: NVIDIA_API_KEY not found in .env. STT failed.", flush=True)
+            print("ERROR: NVIDIA_API_KEY not found in .env.", flush=True)
             return "STT Client Missing"
 
-        return self._transcribe_nvidia(audio_data)
+        return self._transcribe_grpc(audio_data)
 
-    def _transcribe_nvidia(self, audio_data):
-        """Sends audio to NVIDIA NIM for transcription via REST."""
+    def _transcribe_grpc(self, audio_data):
+        """Sends audio to NVIDIA NIM via gRPC (Hosted NVCF)."""
         try:
-            print("Transcription: Processing via NVIDIA NIM...", flush=True)
+            print("Transcription: Processing via NVIDIA gRPC...", flush=True)
             
-            # Convert numpy to WAV bytes (16kHz Mono)
-            buffer = io.BytesIO()
-            with wave.open(buffer, 'wb') as wf:
-                wf.setnchannels(1)
-                wf.setsampwidth(2)
-                wf.setframerate(16000)
-                wf.writeframes(audio_data.tobytes())
+            # 1. Setup Auth with NVCF Metadata
+            auth = riva.client.Auth(
+                uri=self.uri,
+                use_ssl=True,
+                metadata_args=[
+                    ("authorization", f"Bearer {self.api_key}"),
+                    ("function-id", self.function_id)
+                ]
+            )
             
-            audio_bytes = buffer.getvalue()
+            # 2. Create Riva ASR Client
+            client = riva.client.ASRService(auth)
             
-            # Prepare Multipart Request (OpenAI/NIM Standard)
-            headers = {
-                "Authorization": f"Bearer {self.api_key}"
-            }
+            # 3. Configure Request (Removed enable_manual_punctuation to fix API mismatch)
+            config = riva.client.RecognitionConfig(
+                encoding=riva.client.AudioEncoding.LINEAR_PCM,
+                sample_rate_hertz=16000,
+                language_code="en-US",
+                max_alternatives=1,
+                enable_automatic_punctuation=True,
+                audio_channel_count=1
+            )
             
-            files = {
-                'file': ('audio.wav', audio_bytes, 'audio/wav')
-            }
+            # 4. Perform Sync Offline Transcription
+            audio_bytes = audio_data.tobytes()
             
-            data = {
-                'model': self.model_id,
-                'response_format': 'json'
-            }
+            response = client.offline_recognize(audio_bytes, config)
             
-            # Note: Timeout is slightly longer for audio processing
-            response = requests.post(self.api_url, headers=headers, files=files, data=data, timeout=30)
-            response.raise_for_status()
+            if response.results:
+                text = response.results[0].alternatives[0].transcript.strip()
+                print(f"NVIDIA gRPC Completion: {text[:50]}...", flush=True)
+                return text
             
-            result = response.json()
-            text = result.get("text", "").strip()
-            
-            print(f"NVIDIA Transcription Complete: {text[:50]}...", flush=True)
-            return text
+            return ""
             
         except Exception as e:
-            print(f"NVIDIA STT Error: {e}", flush=True)
-            # Fallback to a clear message
-            return f""
+            # Catching the field error or connection issues
+            print(f"NVIDIA gRPC Error: {e}", flush=True)
+            return ""
 
 if __name__ == "__main__":
-    print("NVIDIA STT Engine loaded.")
+    print("NVIDIA gRPC STT Engine loaded.")
